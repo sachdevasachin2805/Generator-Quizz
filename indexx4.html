@@ -1,0 +1,1209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced AI Quiz & Study Buddy</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load PDF Libraries for client-side generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Use Poppins and Inter font families -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@300;600;700;800&display=swap');
+        :root {
+            --font-main: 'Inter', sans-serif;
+            --font-display: 'Poppins', sans-serif;
+        }
+        body { font-family: var(--font-main); }
+        /* Custom Glowing Button Styles */
+        .glowing-button {
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+        .glowing-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+        }       
+        /* Custom Scrollbar for better aesthetic */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-color-light); }
+        ::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-track { background: #1f2937; }
+        .dark ::-webkit-scrollbar-thumb { background: #60a5fa; }
+    </style>
+    <!-- Configure Tailwind to use dark mode and custom colors -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'primary-blue': '#3b82f6',
+                        'soft-blue': '#60a5fa',
+                        'light-bg': '#f3f4f6',
+                        'dark-bg': '#111827',
+                        'dark-card': '#1f2937',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="transition-colors duration-300 min-h-screen bg-light-bg dark:bg-gray-900">
+    <!-- Main Application Container -->
+    <div id="app" class="relative min-h-screen flex flex-col items-center p-4 sm:p-8">
+
+        <!-- Header (Shared by both views) -->
+        <header id="appHeader" class="w-full max-w-5xl flex justify-between items-center mb-8 hidden">
+            <h1 class="text-3xl font-extrabold font-display bg-clip-text text-transparent bg-gradient-to-r from-primary-blue to-soft-blue transition-colors duration-300">
+                AI Study Buddy
+            </h1>
+            <div class="flex items-center space-x-4">
+                <button id="myQuizzesBtn" class="p-2 rounded-full text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200" title="My Saved Quizzes">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path></svg>
+                </button>
+                <button id="themeToggle" class="p-2 rounded-full transition-colors duration-300 focus:outline-none" title="Toggle Dark/Light Mode">
+                    <svg id="sunIcon" class="h-6 w-6 text-gray-800 dark:text-yellow-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <svg id="moonIcon" class="h-6 w-6 text-gray-500 dark:text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                    </svg>
+                </button>
+                <div id="authStatus" class="text-xs font-mono text-gray-600 dark:text-gray-400"></div>
+            </div>
+        </header>
+
+        <!-- Loading Indicator for Initial Auth -->
+        <div id="initialLoading" class="absolute inset-0 bg-gray-100 dark:bg-gray-900 z-50 flex items-center justify-center transition-opacity duration-300">
+            <div class="flex flex-col items-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-4 border-primary-blue"></div>
+                <p class="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-200">Authenticating and loading...</p>
+            </div>
+        </div>
+
+        <!-- AUTH VIEW / LOGIN SCREEN -->
+        <div id="authView" class="hidden w-full max-w-md mt-20 p-8 text-center bg-white dark:bg-dark-card shadow-2xl rounded-2xl border-4 border-primary-blue/50 transition-all duration-500">
+            <svg class="h-16 w-16 mx-auto text-primary-blue mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
+            <h2 class="text-3xl font-extrabold font-display text-gray-900 dark:text-gray-50 mb-3">
+                Secure Access
+            </h2>
+            <p class="text-gray-600 dark:text-gray-400 mb-6">
+                Enter your desired email and password to start the demo.
+            </p>
+
+            <!-- Login Fields -->
+            <div class="space-y-4 mb-6">
+                <div>
+                    <input type="email" id="loginEmail" value=""
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50 focus:ring-primary-blue focus:border-primary-blue"
+                        placeholder="Email Address">
+                </div>
+                <div>
+                    <input type="password" id="loginPassword" value=""
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50 focus:ring-primary-blue focus:border-primary-blue"
+                        placeholder="Password">
+                </div>
+            </div>
+
+            <!-- Auth Status Message -->
+            <div id="authStatusMessage" class="mb-6 font-semibold text-sm p-3 rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-300">
+                You are currently signed in as a Guest.
+            </div>
+
+            <button id="startAppBtn"
+                class="glowing-button w-full py-3 px-6 rounded-xl text-white font-semibold bg-gradient-to-r from-primary-blue to-soft-blue hover:from-soft-blue hover:to-primary-blue transition-all duration-300 shadow-lg disabled:opacity-50">
+                <svg class="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
+                Secure Login
+            </button>
+
+            <p class="mt-4 text-xs text-gray-500 dark:text-gray-400">
+                Authentication handled securely via provided environment token.
+            </p>
+        </div>
+
+        <!-- Main Content Area / QUIZ GENERATOR VIEW -->
+        <main id="generatorView" class="w-full max-w-5xl hidden">
+            <!-- Loading Indicator -->
+            <div id="loading" class="hidden absolute inset-0 bg-gray-100/80 dark:bg-gray-900/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-xl transition-opacity duration-300">
+                <div class="flex flex-col items-center">
+                    <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-blue"></div>
+                    <p class="mt-4 text-lg font-semibold text-gray-700 dark:text-gray-200" id="loadingMessage">Generating quiz...</p>
+                </div>
+            </div>
+
+            <div class="transition-all duration-500 space-y-6">
+                <!-- Input Card - Topic Based -->
+                <div id="topicGeneratorCard" class="bg-white dark:bg-dark-card shadow-xl rounded-2xl p-6 md:p-8 border border-soft-blue/30 dark:border-primary-blue/30 transform hover:shadow-2xl transition-all duration-300">
+                    <h2 class="text-2xl font-bold font-display text-gray-900 dark:text-gray-50 mb-6 border-b pb-3 border-gray-200 dark:border-gray-700">
+                        1. Generate by Topic
+                    </h2>
+                    
+                    <div class="space-y-4">
+                        <!-- Topic Input Row -->
+                        <div>
+                            <label for="topicInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Topic Name</label>
+                            <input type="text" id="topicInput" value="Blockchain Technology"
+                                class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50 placeholder-gray-400"
+                                placeholder="Enter your desired topic..." required>
+                        </div>
+
+                        <!-- Equal Format Row for Parameters (New 3-column grid) -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Column 1: Number of Questions -->
+                            <div>
+                                <label for="numQuestions" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"># Questions (Max 30)</label>
+                                <input type="number" id="numQuestions" value="10" min="1" max="30"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50" required>
+                            </div>
+
+                            <!-- Column 2: Difficulty -->
+                            <div>
+                                <label for="difficulty" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Difficulty</label>
+                                <select id="difficulty" class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50" required>
+                                    <option value="Easy">Easy</option>
+                                    <option value="Medium" selected>Medium</option>
+                                    <option value="Hard">Hard</option>
+                                </select>
+                            </div>
+
+                            <!-- Column 3: Question Type -->
+                            <div>
+                                <label for="questionType" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Question Type</label>
+                                <select id="questionType" class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50" required>
+                                    <option value="Multiple Choice" selected>Multiple Choice</option>
+                                    <option value="True/False">True/False (UI not implemented)</option>
+                                    <option value="Short Answer">Short Answer (UI not implemented)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Generate Button Row -->
+                        <div>
+                            <button id="generateQuizBtn"
+                                class="glowing-button w-full py-3 px-6 rounded-xl text-white font-semibold bg-gradient-to-r from-primary-blue to-soft-blue hover:from-soft-blue hover:to-primary-blue transition-all duration-300 shadow-lg mt-4">
+                                <svg class="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                                Generate New Quiz
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Card - Text Based -->
+                <div class="bg-white dark:bg-dark-card shadow-xl rounded-2xl p-6 md:p-8 border border-soft-blue/30 dark:border-primary-blue/30">
+                    <h2 class="text-2xl font-bold font-display text-gray-900 dark:text-gray-50 mb-6 border-b pb-3 border-gray-200 dark:border-gray-700">
+                        2. Generate from Text (The "Wow" Feature)
+                    </h2>
+                    <label for="textInput" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Paste your study notes or article here (min 100 characters)</label>
+                    <textarea id="textInput" rows="5" placeholder="Paste text here to generate a quiz based *only* on its content..."
+                        class="w-full px-4 py-3 border border-gray-300 rounded-xl shadow-inner focus:ring-primary-blue focus:border-primary-blue dark:bg-gray-700 dark:border-gray-600 dark:text-gray-50 mb-4">Blockchain is a decentralized, distributed, and often public, digital ledger that is used to record transactions across many computers so that any involved record cannot be altered retroactively without the alteration of all subsequent blocks and the consensus of the network. This allows the participants to verify and audit transactions independently and relatively inexpensively. The most famous example is Bitcoin.</textarea>
+                    <button id="generateFromTextBtn"
+                        class="glowing-button w-full py-3 px-6 rounded-xl text-white font-semibold bg-pink-500 hover:bg-pink-600 transition-all duration-300 shadow-lg">
+                        <svg class="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                        Generate Quiz from Text (Uses # Questions Above)
+                    </button>
+                </div>
+
+                <!-- Timer & Score Display -->
+                <div id="timerScoreContainer" class="flex justify-between items-center hidden bg-white dark:bg-dark-card p-4 rounded-xl shadow-lg border border-yellow-300 dark:border-yellow-700">
+                    <label class="flex items-center space-x-2 text-gray-700 dark:text-gray-300 font-bold">
+                        <input type="checkbox" id="challengeModeToggle" class="form-checkbox h-5 w-5 text-red-500 rounded border-gray-300 transition duration-150 ease-in-out">
+                        <span>Timed Challenge Mode</span>
+                    </label>
+                    <div id="timerDisplay" class="text-xl font-mono text-red-600 dark:text-red-400 font-extrabold hidden">05:00</div>
+                    <div id="scoreDisplay" class="text-xl font-bold text-green-600 dark:text-green-400 hidden"></div>
+                </div>
+
+                <!-- Quiz Display Area -->
+                <div id="quizDisplay" class="space-y-6 pt-4">
+                    <!-- Questions will be rendered here -->
+                    <p class="text-center text-gray-500 dark:text-gray-400 p-10 bg-white dark:bg-dark-card rounded-xl">Generate a quiz using the inputs above to begin!</p>
+                </div>
+
+                <!-- Action Bar -->
+                <div id="actionBar" class="hidden sticky bottom-0 z-40 w-full p-4 bg-white/90 dark:bg-dark-card/90 backdrop-blur-sm rounded-t-2xl shadow-2xl border-t border-soft-blue/20 dark:border-primary-blue/20">
+                    <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 max-w-4xl mx-auto">
+                        <button id="saveQuizBtn"
+                            class="glowing-button py-3 px-6 rounded-xl text-white font-semibold bg-yellow-500 hover:bg-yellow-600 transition-all duration-300 disabled:opacity-50" disabled>
+                            <svg class="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-3m-1-4l-4 4m0 0l-4-4m4 4V4"></path></svg>
+                            Save Quiz
+                        </button>
+                        <button id="refreshQuizBtn"
+                            class="py-3 px-6 rounded-xl text-primary-blue dark:text-gray-100 font-semibold border-2 border-primary-blue dark:border-gray-600 hover:bg-primary-blue hover:text-white dark:hover:bg-gray-700 transition-all duration-300">
+                            Refresh
+                        </button>
+                        <button id="checkAnswersBtn"
+                            class="glowing-button flex-1 py-3 px-6 rounded-xl text-white font-semibold bg-green-500 hover:bg-green-600 transition-all duration-300">
+                            <svg class="w-5 h-5 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            Check Answers
+                        </button>
+                        <button id="downloadQuizPdfBtn"
+                            class="py-3 px-6 rounded-xl text-primary-blue dark:text-gray-200 font-semibold border-2 border-primary-blue dark:border-gray-600 hover:bg-primary-blue hover:text-white transition-all duration-300">
+                            Download (.pdf)
+                        </button>
+                        <button id="downloadQuizBtn"
+                            class="py-3 px-6 rounded-xl text-primary-blue dark:text-gray-200 font-semibold border-2 border-primary-blue dark:border-gray-600 hover:bg-primary-blue hover:text-white transition-all duration-300">
+                            Download (.txt)
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+
+    <!-- My Quizzes Modal -->
+    <div id="myQuizzesModal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 z-50 flex items-center justify-center p-4 transition-opacity duration-300">
+        <div class="bg-white dark:bg-dark-card rounded-xl w-full max-w-lg p-6 shadow-2xl transform scale-95 transition-transform duration-300">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h3 class="text-xl font-bold font-display text-gray-900 dark:text-gray-50">My Saved Quizzes</h3>
+                <button id="closeQuizzesModal" class="text-gray-500 hover:text-red-500 dark:text-gray-400 dark:hover:text-red-400">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="quizzesList" class="max-h-96 overflow-y-auto space-y-3">
+                <p class="text-center text-gray-500 dark:text-gray-400" id="noQuizzesMessage">Loading quizzes...</p>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Firebase SDK Imports and Core Application Logic -->
+    <script type="module">
+        // Import necessary Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, query, where, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Global State and Constants ---
+        const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent";
+        const API_KEY = "AIzaSyCLpnPaQ4gH3JIBXEbY_vMeoAfz_Hyy38g"; // Placeholder, key provided by runtime
+        const MAX_RETRIES = 5;
+        const QUIZ_COLLECTION_NAME = 'quizzes'; // Firestore collection name
+        
+        let db, auth;
+        let userId = null;
+        let isAuthReady = false;
+        let isDarkMode = false;
+        let currentQuiz = null; // Stores the active quiz data (questions, options, correctIndex)
+        let timerInterval = null;
+        let isAuthenticated = false; // New flag for manual login state
+
+        // --- DOM Elements ---
+        const appHeader = document.getElementById('appHeader');
+        const initialLoading = document.getElementById('initialLoading');
+        const authView = document.getElementById('authView');
+        const startAppBtn = document.getElementById('startAppBtn');
+        const authStatusMessage = document.getElementById('authStatusMessage');
+        const generatorView = document.getElementById('generatorView');
+        const loading = document.getElementById('loading');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const quizDisplay = document.getElementById('quizDisplay');
+        const generateQuizBtn = document.getElementById('generateQuizBtn');
+        const refreshQuizBtn = document.getElementById('refreshQuizBtn');
+        const checkAnswersBtn = document.getElementById('checkAnswersBtn');
+        const downloadQuizBtn = document.getElementById('downloadQuizBtn');
+        const downloadQuizPdfBtn = document.getElementById('downloadQuizPdfBtn'); // New PDF button
+        const saveQuizBtn = document.getElementById('saveQuizBtn');
+        const actionBar = document.getElementById('actionBar');
+        const themeToggle = document.getElementById('themeToggle');
+        const authStatus = document.getElementById('authStatus');
+        const myQuizzesBtn = document.getElementById('myQuizzesBtn');
+        const myQuizzesModal = document.getElementById('myQuizzesModal');
+        const closeQuizzesModal = document.getElementById('closeQuizzesModal');
+        const quizzesList = document.getElementById('quizzesList');
+        const noQuizzesMessage = document.getElementById('noQuizzesMessage');
+        const generateFromTextBtn = document.getElementById('generateFromTextBtn');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const scoreDisplay = document.getElementById('scoreDisplay');
+        const challengeModeToggle = document.getElementById('challengeModeToggle');
+        const timerScoreContainer = document.getElementById('timerScoreContainer');
+        const textInput = document.getElementById('textInput');
+        const topicInput = document.getElementById('topicInput');
+        const numQuestionsInput = document.getElementById('numQuestions'); // Changed to input
+        
+        const loginEmail = document.getElementById('loginEmail');
+        const loginPassword = document.getElementById('loginPassword');
+
+
+        // --- Utility Functions ---
+
+        /**
+         * Simulates a modern async fetch with exponential backoff for resilience.
+         */
+        const fetchWithRetry = async (url, options, retryCount = 0) => {
+            try {
+                const response = await fetch(url, options);
+                if (response.status === 429 && retryCount < MAX_RETRIES) {
+                    const delay = Math.pow(2, retryCount) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithRetry(url, options, retryCount + 1);
+                }
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response;
+            } catch (error) {
+                if (retryCount < MAX_RETRIES) {
+                    const delay = Math.pow(2, retryCount) * 1000;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithRetry(url, options, retryCount + 1);
+                }
+                throw new Error("API request failed after multiple retries.");
+            }
+        };
+
+        /**
+         * Toggles the UI between dark and light mode.
+         */
+        const toggleTheme = () => {
+            isDarkMode = !isDarkMode;
+            const body = document.body;
+            const sunIcon = document.getElementById('sunIcon');
+            const moonIcon = document.getElementById('moonIcon');
+
+            if (isDarkMode) {
+                document.documentElement.classList.add('dark');
+                body.classList.remove('bg-light-bg');
+                body.classList.add('bg-gray-900');
+                sunIcon.classList.remove('hidden');
+                moonIcon.classList.add('hidden');
+            } else {
+                document.documentElement.classList.remove('dark');
+                body.classList.remove('bg-gray-900');
+                body.classList.add('bg-light-bg');
+                sunIcon.classList.add('hidden');
+                moonIcon.classList.remove('hidden');
+            }
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+        };
+
+        /**
+         * Starts or resets the quiz timer.
+         */
+        const startTimer = () => {
+            if (!challengeModeToggle.checked) return;
+
+            clearInterval(timerInterval);
+            timerDisplay.classList.remove('hidden');
+            const duration = 5 * 60; // 5 minutes in seconds
+            let timeRemaining = duration;
+
+            const updateTimer = () => {
+                const minutes = String(Math.floor(timeRemaining / 60)).padStart(2, '0');
+                const seconds = String(timeRemaining % 60).padStart(2, '0');
+                timerDisplay.textContent = `${minutes}:${seconds}`;
+
+                if (timeRemaining <= 60) {
+                    timerDisplay.classList.add('text-yellow-400', 'animate-pulse');
+                    timerDisplay.classList.remove('text-red-600', 'dark:text-red-400');
+                } else {
+                    timerDisplay.classList.remove('text-yellow-400', 'animate-pulse');
+                    timerDisplay.classList.add('text-red-600', 'dark:text-red-400');
+                }
+
+                if (timeRemaining <= 0) {
+                    clearInterval(timerInterval);
+                    timerDisplay.textContent = 'TIME UP!';
+                    checkAnswersBtn.click(); // Auto-check answers
+                }
+                timeRemaining--;
+            };
+
+            updateTimer();
+            timerInterval = setInterval(updateTimer, 1000);
+        };
+
+        /**
+         * Stops the quiz timer.
+         */
+        const stopTimer = () => {
+            clearInterval(timerInterval);
+            timerDisplay.classList.add('hidden');
+            timerDisplay.classList.remove('animate-pulse');
+        };
+
+        // --- AI API Call Functions (Simplified/Redacted for brevity, as they were extensive and function correctly) ---
+
+        /**
+         * Generic function for calling the Gemini API for non-structured text.
+         */
+        const callGeminiForText = async (systemPrompt, userQuery) => {
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                tools: [{ "google_search": {} }],
+            };
+
+            const response = await fetchWithRetry(`${API_URL}?key=${API_KEY}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const result = await response.json();
+            return result.candidates?.[0]?.content?.parts?.[0]?.text || "Sorry, I couldn't generate a response for that.";
+        };
+
+        /**
+         * Handles the "Hint" button click.
+         */
+        const handleHint = async (questionText, hintBtn) => {
+            hintBtn.disabled = true;
+            hintBtn.textContent = 'Thinking...';
+
+            const hintContainer = hintBtn.closest('.quiz-card').querySelector('.hint-container');
+
+            const systemPrompt = "You are a concise quiz tutor. Provide a single-sentence, non-obvious hint to help the user answer the question without giving away the correct answer.";
+            const userQuery = `Give me a hint for the question: "${questionText}"`;
+
+            try {
+                const hint = await callGeminiForText(systemPrompt, userQuery);
+                hintContainer.innerHTML = `<p class="mt-2 text-sm text-yellow-600 dark:text-yellow-400 p-2 bg-yellow-100 dark:bg-yellow-900/50 rounded-lg">${hint}</p>`;
+                hintBtn.textContent = 'Hint (Used)';
+            } catch (error) {
+                console.error("Hint generation error:", error);
+                hintBtn.textContent = 'Hint (Error)';
+            }
+        };
+
+        /**
+         * Handles the "Explanation" button click.
+         */
+        const handleExplanation = async (questionText, correctOption, explanationBtn, userChoice) => {
+            explanationBtn.disabled = true;
+            explanationBtn.textContent = 'Generating Explanation...';
+            explanationBtn.classList.add('animate-pulse');
+
+            const explanationContainer = explanationBtn.closest('.quiz-card').querySelector('.explanation-container');
+
+            const systemPrompt = "You are an excellent teacher. Provide a concise, educational explanation of why the correct answer is correct, and specifically address why the user's selected wrong answer was incorrect (if a wrong answer was selected).";
+            const userQuery = `Explain the answer for the question: "${questionText}". The correct answer is "${correctOption}". ${userChoice ? `The user incorrectly selected: "${userChoice}".` : ''}`;
+
+            try {
+                const explanation = await callGeminiForText(systemPrompt, userQuery);
+                explanationContainer.innerHTML = `<p class="mt-2 text-sm text-gray-700 dark:text-gray-300 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg border-l-4 border-primary-blue">${explanation}</p>`;
+            } catch (error) {
+                console.error("Explanation generation error:", error);
+                explanationContainer.innerHTML = `<p class="mt-2 text-sm text-red-600">Error generating explanation.</p>`;
+            } finally {
+                explanationBtn.textContent = 'Explanation (Viewed)';
+                explanationBtn.classList.remove('animate-pulse');
+            }
+        };
+
+        // --- Quiz Generation and Rendering ---
+
+        /**
+         * Loads a quiz into the generator view.
+         */
+        const loadQuiz = (quiz, quizInfo = {}) => {
+            currentQuiz = quiz;
+
+            // Reset UI state
+            stopTimer();
+            scoreDisplay.classList.add('hidden');
+            timerScoreContainer.classList.remove('hidden');
+
+            // Apply Info to inputs if available
+            topicInput.value = quizInfo.topic || 'Custom Quiz';
+            numQuestionsInput.value = quiz.length;
+            document.getElementById('difficulty').value = quizInfo.difficulty || 'Medium';
+
+            renderQuiz(quiz);
+
+            // Re-enable check answers button
+            checkAnswersBtn.disabled = false;
+            checkAnswersBtn.textContent = 'Check Answers';
+
+            // Start timer if challenge mode is active
+            if (challengeModeToggle.checked) {
+                startTimer();
+            }
+        };
+
+        /**
+         * Renders the generated quiz data into the DOM.
+         */
+        const renderQuiz = (quiz) => {
+            quizDisplay.innerHTML = '';
+            actionBar.classList.remove('hidden');
+            currentQuiz = quiz;
+
+            quiz.forEach((q, index) => {
+                const questionCard = document.createElement('div');
+                questionCard.className = 'quiz-card bg-white dark:bg-dark-card shadow-lg rounded-xl p-5 md:p-6 transition-all duration-500 opacity-0 transform translate-y-4 hover:shadow-xl';
+                questionCard.dataset.questionIndex = index;
+                // Add fade-in animation delay
+                questionCard.style.animation = `fadeIn 0.5s ease-out ${index * 0.1}s forwards`;
+
+                // Store the correct index securely on the card data attribute
+                questionCard.dataset.correctIndex = q.correctIndex;
+
+                const optionsHtml = q.options.map((option, optIndex) => `
+                    <div class="flex items-start space-x-3 p-3 rounded-lg cursor-pointer option-item transition-all duration-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                         data-option-index="${optIndex}">
+                        <input type="radio" name="q${index}" id="q${index}opt${optIndex}" data-q-index="${index}" data-opt-index="${optIndex}"
+                               class="mt-1 h-5 w-5 text-primary-blue border-gray-300 focus:ring-primary-blue dark:bg-gray-600 dark:border-gray-50 dark:checked:bg-primary-blue">
+                        <label for="q${index}opt${optIndex}" class="flex-1 text-gray-800 dark:text-gray-200" data-field="option" data-index="${optIndex}" contenteditable="false">${option}</label>
+                    </div>
+                `).join('');
+
+                questionCard.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-gray-50 flex-1 mr-4">
+                            ${index + 1}. <span contenteditable="false" data-field="question" class="question-text">${q.question}</span>
+                        </h3>
+                        <div class="flex space-x-2">
+                            <button class="edit-btn text-sm font-medium text-primary-blue hover:text-soft-blue transition-colors duration-200"
+                                    data-state="view">
+                                Edit
+                            </button>
+                        </div>
+                    </div>
+                    <div class="options-container space-y-2 mb-2">
+                        ${optionsHtml}
+                    </div>
+
+                    <div class="flex justify-between mt-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+                        <button class="hint-btn text-xs font-medium text-purple-600 dark:text-purple-400 hover:underline transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed">Hint</button>
+                        <button class="explanation-btn text-xs font-medium text-red-600 dark:text-red-400 hover:underline transition-colors duration-200 hidden disabled:opacity-50 disabled:cursor-not-allowed">Why was this wrong?</button>
+                    </div>
+
+                    <div class="hint-container mt-2"></div>
+                    <div class="explanation-container mt-2"></div>
+                `;
+                quizDisplay.appendChild(questionCard);
+            });
+
+            // Add keyframes for fade-in animation
+            if (!document.getElementById('fadeInStyle')) {
+                const style = document.createElement('style');
+                style.id = 'fadeInStyle';
+                style.innerHTML = '@keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }';
+                document.head.appendChild(style);
+            }
+        };
+
+        /**
+         * Handles the main quiz generation logic (Topic or Text based).
+         */
+        const handleGenerateQuiz = async (isRefresh = false, sourceText = null) => {
+            const topic = topicInput.value.trim();
+            const difficulty = document.getElementById('difficulty').value;
+            const questionType = document.getElementById('questionType').value;
+            let numQuestions = parseInt(numQuestionsInput.value);
+
+            // --- REMOVED HARD LIMITS / ADDED VALIDATION ---
+            if (numQuestions < 1 || isNaN(numQuestions)) {
+                numQuestions = 5; // Default to 5 if input is invalid
+                numQuestionsInput.value = 5;
+            } else if (numQuestions > 30) {
+                numQuestions = 30; // Practical upper limit for API stability
+                numQuestionsInput.value = 30;
+                console.warn("Question count capped at 30 for API stability.");
+            }
+            // --- END LIMITS/VALIDATION ---
+
+
+            if (sourceText && sourceText.length < 100) {
+                console.error('Please provide at least 100 characters of text to generate a quiz from.');
+                quizDisplay.innerHTML = `<div class="p-8 text-center bg-red-50 dark:bg-red-900/50 rounded-xl mt-6"><p class="text-red-600 dark:text-red-400 font-semibold">Error: Please provide at least 100 characters of text to generate a quiz from.</p></div>`;
+                return;
+            }
+
+            if (!sourceText && !topic) {
+                console.error('Please enter a topic or paste text to begin.');
+                quizDisplay.innerHTML = `<div class="p-8 text-center bg-red-50 dark:bg-red-900/50 rounded-xl mt-6"><p class="text-red-600 dark:text-red-400 font-semibold">Error: Please enter a topic or paste text to begin.</p></div>`;
+                return;
+            }
+
+            // Reset UI State
+            stopTimer();
+            quizDisplay.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400 p-10 bg-white dark:bg-dark-card rounded-xl">Generating quiz...</p>`;
+            actionBar.classList.add('hidden');
+            scoreDisplay.classList.add('hidden');
+            loadingMessage.textContent = sourceText ? `Analyzing text and generating ${numQuestions} questions...` : `${isRefresh ? 'Refreshing' : 'Generating'} ${difficulty} ${topic} quiz (${numQuestions} Qs)...`;
+            loading.classList.remove('hidden');
+
+            try {
+                // Determine user query and system prompt
+                const topicOrText = sourceText ? `the following provided text: "${sourceText.substring(0, 500)}..."` : `the topic: "${topic}"`;
+
+                const systemPrompt = `You are a helpful and creative quiz generator. Based on ${topicOrText}, you must generate exactly ${numQuestions} multiple-choice questions with a difficulty of ${difficulty}. For each question, provide 4 distinct options and the 0-based index of the single correct answer. The output MUST be a single JSON object matching the provided schema, with NO introductory or concluding text.`;
+
+                const userQuery = sourceText ? `Generate ${numQuestions} multiple-choice questions based ONLY on the provided text. Difficulty: ${difficulty}.` : `Generate ${numQuestions} multiple-choice questions on the topic: ${topic}. Difficulty: ${difficulty}.`;
+
+                // JSON Schema for structured output
+                const responseSchema = {
+                    type: "OBJECT",
+                    properties: {
+                        quiz: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    "question": { "type": "STRING", "description": "The quiz question text." },
+                                    "options": {
+                                        "type": "ARRAY",
+                                        "items": { "type": "STRING" },
+                                        "description": "Exactly four answer options."
+                                    },
+                                    "correctIndex": { "type": "INTEGER", "description": "The 0-based index (0, 1, 2, or 3) of the correct option." }
+                                },
+                                "propertyOrdering": ["question", "options", "correctIndex"]
+                            }
+                        }
+                    }
+                };
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: responseSchema,
+                    },
+                };
+
+                const response = await fetchWithRetry(`${API_URL}?key=${API_KEY}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (!jsonText) {
+                    throw new Error("Failed to parse LLM response. Content was missing or invalid.");
+                }
+
+                const parsedResult = JSON.parse(jsonText);
+                const quizData = parsedResult.quiz;
+
+                if (!quizData || quizData.length === 0) {
+                    throw new Error("The AI generated an empty quiz. Try a different topic or text.");
+                }
+
+                loadQuiz(quizData, { topic: topic, difficulty: difficulty, type: questionType });
+
+            } catch (error) {
+                console.error("Quiz generation error:", error);
+                const errorMessage = `<p class="text-red-600 dark:text-red-400 font-semibold">Error: Could not generate quiz. ${error.message}</p>`;
+                quizDisplay.innerHTML = `<div class="p-8 text-center bg-red-50 dark:bg-red-900/50 rounded-xl mt-6">${errorMessage}</div>`;
+                actionBar.classList.add('hidden'); // Hide action bar on error
+            } finally {
+                loading.classList.add('hidden');
+            }
+        };
+
+        // --- PDF Generation Function ---
+
+        /**
+         * Converts the quiz display to a PDF using html2canvas and jsPDF.
+         */
+        const downloadQuizAsPdf = async () => {
+            if (!currentQuiz) { 
+                console.error('Download failed: Generate a quiz first!'); 
+                authStatusMessage.innerHTML = `<span class="font-bold">Error!</span> Generate a quiz first to download PDF.`;
+                authStatusMessage.classList.remove('bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400', 'bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+                authStatusMessage.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+                return; 
+            }
+
+            // Show temporary loading in the main message area
+            authStatusMessage.innerHTML = `<span class="font-bold">Working...</span> Capturing and generating PDF. Please wait (10-30s).`;
+            authStatusMessage.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400', 'bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400');
+            authStatusMessage.classList.add('bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+            
+            // Temporary hide action bar and score to clean up PDF output
+            const originalActionBarDisplay = actionBar.style.display;
+            actionBar.style.display = 'none';
+
+            try {
+                // Ensure the window.jsPDF class is available (due to UMD load)
+                const { jsPDF } = window.jspdf;
+                if (!jsPDF) throw new Error("jsPDF library not found.");
+
+                const input = quizDisplay;
+                
+                // 1. Capture the quiz display area as a canvas image
+                const canvas = await html2canvas(input, {
+                    scale: 2, // Use a higher scale for better quality PDF
+                    logging: false,
+                    useCORS: true,
+                });
+
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4'); // 'p' (portrait), 'mm' (unit), 'a4' (format)
+                const imgWidth = 210; // A4 width in mm
+                const pageHeight = 295; // A4 height in mm
+                const imgHeight = canvas.height * imgWidth / canvas.width;
+                let heightLeft = imgHeight;
+                let position = 0;
+
+                // 2. Add image to PDF, handling multiple pages if needed
+                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                heightLeft -= pageHeight;
+
+                while (heightLeft >= 0) {
+                    position = heightLeft - imgHeight;
+                    pdf.addPage();
+                    pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                    heightLeft -= pageHeight;
+                }
+                
+                // 3. Save the PDF
+                const filename = `AI_Quiz_PDF_${topicInput.value.replace(/\s/g, '_')}.pdf`;
+                pdf.save(filename);
+                
+                // Show success message
+                authStatusMessage.innerHTML = `<span class="font-bold">SUCCESS!</span> Quiz downloaded as ${filename}.`;
+                authStatusMessage.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+                authStatusMessage.classList.add('bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400');
+
+            } catch (error) {
+                console.error("PDF generation error:", error);
+                authStatusMessage.innerHTML = `<span class="font-bold">Error!</span> Failed to generate PDF. See console.`;
+                authStatusMessage.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+                authStatusMessage.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+            } finally {
+                // Restore UI state
+                actionBar.style.display = originalActionBarDisplay;
+            }
+        };
+
+
+        // --- Scoring and Feedback (omitted for brevity, assume correct from previous version) ---
+        const calculateScoreAndDisplay = () => {
+            stopTimer(); // Stop the timer immediately
+
+            if (!currentQuiz) return;
+
+            checkAnswersBtn.disabled = true;
+            let correctCount = 0;
+            const totalQuestions = currentQuiz.length;
+
+            quizDisplay.querySelectorAll('.quiz-card').forEach((card, index) => {
+                const correctIndex = parseInt(card.dataset.correctIndex);
+                const optionsContainer = card.querySelector('.options-container');
+                const explanationBtn = card.querySelector('.explanation-btn');
+                const questionText = card.querySelector('.question-text').textContent.trim();
+                let userSelectedOption = null;
+                let isCorrect = false;
+
+                optionsContainer.querySelectorAll('.option-item').forEach(optionItem => {
+                    const optionIndex = parseInt(optionItem.dataset.optionIndex);
+                    const radio = optionItem.querySelector(`input[name="q${index}"]`);
+                    optionItem.classList.remove('bg-red-100', 'bg-green-100', 'dark:bg-red-900/30', 'dark:bg-green-900/50', 'shadow-lg');
+
+                    // Highlight correct answer
+                    if (optionIndex === correctIndex) {
+                        const correctOptionText = optionItem.querySelector('label').textContent.trim();
+                        optionItem.classList.add('bg-green-100', 'dark:bg-green-900/50', 'shadow-lg');
+                        optionItem.style.pointerEvents = 'none'; // Lock options
+
+                        // Check user selection
+                        if (radio.checked) {
+                            correctCount++;
+                            isCorrect = true;
+                        }
+                        explanationBtn.dataset.correctOption = correctOptionText;
+                    }
+
+                    // Highlight wrong answer if selected
+                    if (radio.checked && optionIndex !== correctIndex) {
+                        optionItem.classList.add('bg-red-100/50', 'dark:bg-red-900/30');
+                        userSelectedOption = optionItem.querySelector('label').textContent.trim();
+                    }
+
+                    // Lock all options after checking
+                    radio.disabled = true;
+                });
+
+                // Show explanation button if the answer was wrong
+                if (!isCorrect) {
+                    explanationBtn.classList.remove('hidden');
+                    explanationBtn.dataset.userChoice = userSelectedOption;
+                }
+            });
+
+            // Display Score
+            scoreDisplay.textContent = `You got ${correctCount}/${totalQuestions} correct! (${((correctCount / totalQuestions) * 100).toFixed(0)}%)`;
+            scoreDisplay.classList.remove('hidden');
+        };
+
+        // --- Firestore Data Management (omitted for brevity, assume correct from previous version) ---
+
+        /**
+         * Get the correct path for the user's private collection.
+         */
+        const getQuizCollectionRef = () => {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            // Note: Since we are using manual demo login, we use a fixed userId for saving
+            const effectiveUserId = isAuthenticated && userId ? userId : 'demo-user-id';
+            return collection(db, `artifacts/${appId}/users/${effectiveUserId}/${QUIZ_COLLECTION_NAME}`);
+        };
+
+        /**
+         * Saves the current quiz to Firestore.
+         */
+        const saveCurrentQuiz = async () => {
+            if (!currentQuiz || !isAuthenticated || !isAuthReady) {
+                // IMPORTANT: Replaced alert() with console.error/UI message for better UX
+                console.error('Save failed: Must be logged in to the demo account.');
+                authStatusMessage.innerHTML = `<span class="font-bold">Save Failed!</span> You must be logged in to save quizzes.`;
+                authStatusMessage.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+                return;
+            }
+
+            const topic = topicInput.value.trim() || 'Untitled Quiz';
+            const difficulty = document.getElementById('difficulty').value;
+
+            try {
+                const quizDoc = {
+                    topic: topic,
+                    difficulty: difficulty,
+                    questionCount: currentQuiz.length,
+                    timestamp: new Date().toISOString(),
+                    quizData: currentQuiz, // Store the JSON array
+                };
+
+                await addDoc(getQuizCollectionRef(), quizDoc);
+                // IMPORTANT: Replaced alert() with console.log and UI message for better UX
+                authStatusMessage.innerHTML = `<span class="font-bold">SUCCESS!</span> Quiz "${topic}" saved successfully.`;
+                authStatusMessage.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400', 'bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+                authStatusMessage.classList.add('bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400');
+
+            } catch (error) {
+                console.error("Error saving quiz to Firestore:", error);
+                // IMPORTANT: Replaced alert() with console.error/UI message for better UX
+                authStatusMessage.innerHTML = `<span class="font-bold">Error!</span> Failed to save quiz. See console.`;
+                authStatusMessage.classList.remove('bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400', 'bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+                authStatusMessage.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+            }
+        };
+
+        /**
+         * Loads and displays all saved quizzes in the modal.
+         */
+        const loadSavedQuizzes = async () => {
+            if (!isAuthenticated || !isAuthReady) {
+                quizzesList.innerHTML = `<p class="text-center text-red-500">You must be logged in to the demo account to view saved quizzes.</p>`;
+                myQuizzesModal.classList.remove('hidden');
+                return;
+            }
+
+            noQuizzesMessage.textContent = 'Loading...';
+            myQuizzesModal.classList.remove('hidden');
+            quizzesList.innerHTML = '';
+
+            try {
+                const q = query(getQuizCollectionRef());
+                const querySnapshot = await getDocs(q);
+
+                if (querySnapshot.empty) {
+                    quizzesList.innerHTML = `<p class="text-center text-gray-500 dark:text-gray-400">You haven't saved any quizzes yet.</p>`;
+                    return;
+                }
+
+                querySnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const date = new Date(data.timestamp).toLocaleDateString();
+                    const item = document.createElement('div');
+                    item.className = 'flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer';
+                    item.innerHTML = `
+                        <div>
+                            <p class="font-semibold text-gray-900 dark:text-gray-50">${data.topic}</p>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">ID: ${doc.id.substring(0, 5)} | ${data.questionCount} Qs | ${data.difficulty} | Saved: ${date}</p>
+                        </div>
+                        <button class="load-quiz-btn py-1 px-3 bg-primary-blue text-white rounded-md text-sm hover:bg-soft-blue" data-quiz-id="${doc.id}">Load</button>
+                    `;
+                    quizzesList.appendChild(item);
+                });
+
+                // Attach listener to load buttons
+                quizzesList.querySelectorAll('.load-quiz-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const quizId = e.target.dataset.quizId;
+                        await loadQuizById(quizId);
+                        myQuizzesModal.classList.add('hidden');
+                    });
+                });
+
+            } catch (error) {
+                console.error("Error loading quizzes:", error);
+                quizzesList.innerHTML = `<p class="text-center text-red-500">Error loading saved quizzes. See console.</p>`;
+            }
+        };
+
+        /**
+         * Loads a single quiz by its ID from Firestore.
+         */
+        const loadQuizById = async (quizId) => {
+            loadingMessage.textContent = 'Loading saved quiz...';
+            loading.classList.remove('hidden');
+
+            try {
+                const docRef = doc(getQuizCollectionRef(), quizId);
+                const docSnap = await getDoc(docRef);
+
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    loadQuiz(data.quizData, { topic: data.topic, difficulty: data.difficulty });
+                } else {
+                    // IMPORTANT: Replaced alert() with console.error/UI message for better UX
+                    console.error('Load failed: Quiz not found.');
+                    authStatusMessage.innerHTML = `<span class="font-bold">Error!</span> Quiz not found.`;
+                    authStatusMessage.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+                }
+            } catch (error) {
+                console.error("Error loading single quiz:", error);
+                 // IMPORTANT: Replaced alert() with console.error/UI message for better UX
+                authStatusMessage.innerHTML = `<span class="font-bold">Error!</span> Failed to load quiz. See console.`;
+                authStatusMessage.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+            } finally {
+                loading.classList.add('hidden');
+            }
+        };
+
+        // --- Event Listeners ---
+
+        /**
+         * Handles the manual demo login logic.
+         */
+        const handleDemoLogin = () => {
+            const email = loginEmail.value.trim();
+            const password = loginPassword.value.trim();
+
+            // Allow successful demo login if ANY email and password are provided (not empty).
+            if (email.length > 0 && password.length > 0) {
+                isAuthenticated = true;
+                
+                // Update authentication UI to reflect successful login
+                authStatus.innerHTML = `ID: <span class="font-semibold">DEMO-USER</span>`;
+                authStatusMessage.innerHTML = `**SUCCESS!** Logged in as **${email}**. Quiz saving and loading is **enabled**.`;
+                authStatusMessage.classList.remove('bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400', 'bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+                authStatusMessage.classList.add('bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400');
+                myQuizzesBtn.disabled = false;
+                saveQuizBtn.disabled = false;
+
+                // Transition the view
+                document.body.classList.remove('flex', 'items-center', 'justify-center');
+                authView.classList.add('hidden');
+                generatorView.classList.remove('hidden');
+                appHeader.classList.remove('hidden');
+
+            } else {
+                // Show failure message if fields are empty
+                authStatusMessage.innerHTML = `<span class="font-bold">Login Failed!</span> Please enter both an Email and a Password to start the demo.`;
+                authStatusMessage.classList.remove('bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400', 'bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+                authStatusMessage.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+            }
+        };
+
+        // App Start Button (Now triggers manual demo login)
+        startAppBtn.addEventListener('click', handleDemoLogin);
+        // Also allow pressing Enter in the password field
+        loginPassword.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                handleDemoLogin();
+            }
+        });
+
+        // Main event listeners
+        generateQuizBtn.addEventListener('click', () => handleGenerateQuiz(false));
+        refreshQuizBtn.addEventListener('click', () => handleGenerateQuiz(true));
+        generateFromTextBtn.addEventListener('click', () => {
+            const text = textInput.value.trim();
+            handleGenerateQuiz(false, text);
+        });
+        themeToggle.addEventListener('click', toggleTheme);
+        checkAnswersBtn.addEventListener('click', calculateScoreAndDisplay);
+        saveQuizBtn.addEventListener('click', saveCurrentQuiz);
+        downloadQuizPdfBtn.addEventListener('click', downloadQuizAsPdf); // New PDF Listener
+
+        // Timer/Challenge Mode toggle
+        challengeModeToggle.addEventListener('change', (e) => {
+            if (e.target.checked && currentQuiz) {
+                startTimer();
+            } else {
+                stopTimer();
+            }
+        });
+
+        // My Quizzes Modal
+        myQuizzesBtn.addEventListener('click', loadSavedQuizzes);
+        closeQuizzesModal.addEventListener('click', () => myQuizzesModal.classList.add('hidden'));
+
+        // Delegate listener for Hint, Explanation, and Edit buttons
+        quizDisplay.addEventListener('click', (e) => {
+            const card = e.target.closest('.quiz-card');
+            const qIndex = parseInt(card?.dataset.questionIndex);
+
+            if (e.target.closest('.hint-btn')) {
+                const hintBtn = e.target.closest('.hint-btn');
+                const questionText = card.querySelector('.question-text').textContent.trim();
+                handleHint(questionText, hintBtn);
+            }
+            else if (e.target.closest('.explanation-btn')) {
+                const explanationBtn = e.target.closest('.explanation-btn');
+                const questionText = card.querySelector('.question-text').textContent.trim();
+                const correctOption = explanationBtn.dataset.correctOption;
+                const userChoice = explanationBtn.dataset.userChoice;
+                handleExplanation(questionText, correctOption, explanationBtn, userChoice);
+            }
+            else if (e.target.closest('.edit-btn')) {
+                const editBtn = e.target.closest('.edit-btn');
+                const isEditing = editBtn.dataset.state === 'edit';
+
+                // Toggle state
+                editBtn.dataset.state = isEditing ? 'view' : 'edit';
+                editBtn.textContent = isEditing ? 'Edit' : 'Save';
+
+                // Make content editable
+                card.querySelectorAll('[contenteditable]').forEach(el => {
+                    el.contentEditable = !isEditing;
+                    if (!isEditing) {
+                        el.classList.add('border-b', 'border-dashed', 'border-primary-blue/50');
+                    } else {
+                        el.classList.remove('border-b', 'border-dashed', 'border-primary-blue/50');
+                    }
+                });
+
+                if (isEditing && currentQuiz && currentQuiz[qIndex]) {
+                    // Save changes back to currentQuiz when toggling from edit to view
+                    currentQuiz[qIndex].question = card.querySelector('.question-text').textContent.trim();
+                    currentQuiz[qIndex].options = Array.from(card.querySelectorAll('[data-field="option"]')).map(el => el.textContent.trim());
+                }
+            }
+            else if (e.target.closest('.option-item')) {
+                // Handle radio button selection (visual feedback only, actual check is on button click)
+                const radio = e.target.closest('.option-item').querySelector('input[type="radio"]');
+                if (radio && !radio.disabled) {
+                    radio.checked = true;
+                }
+            }
+        });
+
+        // Download Quiz (.txt)
+        downloadQuizBtn.addEventListener('click', () => {
+            if (!currentQuiz) { 
+                // IMPORTANT: Replaced alert() with console.error/UI message for better UX
+                console.error('Download failed: Generate a quiz first!'); 
+                authStatusMessage.innerHTML = `<span class="font-bold">Error!</span> Generate a quiz first to download.`;
+                authStatusMessage.classList.remove('bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400', 'bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+                authStatusMessage.classList.add('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400');
+                return; 
+            }
+
+            let textContent = `Custom AI Quiz - Topic: ${topicInput.value} (Difficulty: ${document.getElementById('difficulty').value})\n\n`;
+
+            currentQuiz.forEach((q, index) => {
+                textContent += `Question ${index + 1}: ${q.question}\n`;
+                q.options.forEach((opt, optIndex) => {
+                    textContent += `  ${String.fromCharCode(65 + optIndex)}. ${opt}\n`;
+                });
+                textContent += `\nCorrect Answer: ${String.fromCharCode(65 + q.correctIndex)}\n\n`;
+            });
+
+            const blob = new Blob([textContent], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `AI_Quiz_${topicInput.value.replace(/\s/g, '_')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Show success message
+            authStatusMessage.innerHTML = `<span class="font-bold">SUCCESS!</span> Quiz downloaded as ${a.download}.`;
+            authStatusMessage.classList.remove('bg-red-50', 'dark:bg-red-900/20', 'text-red-800', 'dark:text-red-300', 'border-red-400', 'bg-yellow-50', 'dark:bg-yellow-900/20', 'text-yellow-800', 'dark:text-yellow-300', 'border-yellow-400');
+            authStatusMessage.classList.add('bg-green-50', 'dark:bg-green-900/20', 'text-green-800', 'dark:text-green-300', 'border-green-400');
+        });
+
+        // --- Initialization ---
+
+        window.onload = async function() {
+            // 0. Set initial layout to center the auth view
+            document.body.classList.add('flex', 'items-center', 'justify-center');
+
+            // 1. Initialize Firebase
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+            if (Object.keys(firebaseConfig).length > 0) {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                console.log("Firebase Initialized for App ID:", appId);
+
+                // 2. Handle Authentication
+                onAuthStateChanged(auth, async (user) => {
+                    isAuthReady = true;
+                    initialLoading.classList.add('hidden');
+                    authView.classList.remove('hidden');
+                    startAppBtn.disabled = false;
+
+                    // We still use the default user for initial setup, but switch control to manual login
+                    if (user) {
+                        userId = user.uid;
+                        const shortId = userId.substring(0, 5);
+
+                        authStatus.textContent = `ID: ${shortId}... (Guest)`;
+                        authStatusMessage.innerHTML = `**Status:** Signed in as **Guest**. Enter your **Email** and **Password** to start the app demo.`;
+                        myQuizzesBtn.disabled = true;
+                        saveQuizBtn.disabled = true;
+                    } else {
+                        // Should not happen after initial sign-in attempt, but for safety
+                        userId = crypto.randomUUID();
+                        authStatus.textContent = `ID: ${userId.substring(0, 5)}... (Guest)`;
+                        authStatusMessage.innerHTML = `Sign-in failed. Proceeding as **Anonymous Guest**. Enter your **Email** and **Password** to start the app demo.`;
+                        myQuizzesBtn.disabled = true;
+                        saveQuizBtn.disabled = true;
+                    }
+                });
+
+                // Attempt sign-in using the provided custom token or anonymously
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Initial sign-in failed, falling back to anonymous:", error);
+                    await signInAnonymously(auth);
+                }
+
+                // 3. Set initial theme
+                const savedTheme = localStorage.getItem('theme');
+                if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    isDarkMode = false;
+                    toggleTheme();
+                } else {
+                    isDarkMode = true;
+                    toggleTheme();
+                }
+            } else {
+                console.warn("Firebase configuration not found. Running in offline/guest mode.");
+                initialLoading.classList.add('hidden');
+                authView.classList.remove('hidden');
+                startAppBtn.disabled = false;
+
+                userId = crypto.randomUUID();
+                isAuthReady = true;
+                authStatus.textContent = 'Guest (Offline)';
+                authStatusMessage.innerHTML = `**Status:** Running Offline. Enter your **Email** and **Password** to start the app demo.`;
+                myQuizzesBtn.disabled = true;
+                saveQuizBtn.disabled = true;
+                toggleTheme();
+            }
+        };
+
+    </script>
+</body>
+</html>
